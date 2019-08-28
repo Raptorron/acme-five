@@ -1,0 +1,273 @@
+<html>
+  <head>
+    <script
+      crossorigin
+      src="https://unpkg.com/react@16/umd/react.development.js"
+    ></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"
+    ></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-router-dom/5.0.1/react-router-dom.js"></script>
+    <style>
+      nav {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+      }
+      #underline {
+        border-bottom: solid 1px black;
+      }
+      .indent{
+        margin-top: 1rem;
+        margin-left: 2rem;
+        margin-right: 2rem;
+      }
+      .active{
+        background-color: tomato;
+        color: white;
+        padding: 1.5rem;
+        border-radius: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Acme 5 Under/Over</h1>
+    <div id="root"></div>
+    <script type="text/babel">
+      const { render } = ReactDOM;
+      const { createElement, Component } = React;
+      const { Route, HashRouter, NavLink, Redirect, Switch, Link } = ReactRouterDOM;
+      const root = document.querySelector("#root");
+
+      const Nav = ({ path, products, companies, offerings }) => {
+        return (
+          <nav>
+            <NavLink to="/under5">Under 5</NavLink>
+            <NavLink to="/over5">Over 5</NavLink>
+          </nav>
+        );
+      };
+
+      const Under5 = ({ products, companies, offerings, match }) => {
+
+
+        const processed = products.map(product => {
+          let _offerings = offerings
+            .filter(offering => offering.productId === product.id)
+            .map(offering => {
+              const company = companies.find(
+                company => company.id === offering.companyId
+              );
+              return { ...company, offering };
+            });
+          return { ...product, offerings: _offerings };
+        });
+
+
+
+        const filtered = processed.filter(product =>
+          product.suggestedPrice < 5 ? product.name : ""
+        );
+
+        return (
+          <div>
+            <div>
+              {filtered.map(product => (
+                <div key={product.id}>
+                  <Link to={`/under5/${product.id}`}>{product.name}</Link>
+                  <br />
+                  <div>{product.suggestedPrice.toFixed(2)}</div>
+                  <br />
+                  <div id="underline"></div>
+                </div>
+              ))}
+            </div>
+            <Route path="/under5/:id" render={({match})=> <CompaniesUnder5 processed={processed} match={match} /> } />
+          </div>
+        );
+      };
+
+      class CompaniesUnder5 extends Component {
+        constructor(props) {
+          super(props);
+          this.state = {
+            product: {}
+          };
+        }
+        componentDidMount() {
+          const id = this.props.match.params.id;
+          this.setState({product: this.props.processed.find( product => product.id === id)})
+          // console.log(this.props)
+
+        }
+        componentDidUpdate(prevProps){
+        const id = this.props.match.params.id;
+        if(id !== prevProps.match.params.id){
+
+          this.setState({product: this.props.processed.find( product => product.id === id)})
+        }
+        }
+
+        render() {
+          const { product } = this.state;
+          return (
+            <div>
+              {
+                product.offerings.map( company => <div key={company.id} className='indent'>
+                Offered at ${company.offering.price.toFixed(2)}
+                <br />
+                <div>by {company.name}</div>
+                <br />
+                <div id='underline'></div></div>)
+              }
+            </div>
+          );
+        }
+      }
+
+      const Over5 = ({ products, companies, offerings }) => {
+
+        const processed = products.map(product => {
+          let _offerings = offerings
+            .filter(offering => offering.productId === product.id)
+            .map(offering => {
+              const company = companies.find(
+                company => company.id === offering.companyId
+              );
+              return { ...company, offering };
+            });
+          return { ...product, offerings: _offerings };
+        });
+
+        const filtered = processed.filter(product =>
+          product.suggestedPrice > 5 ? product.name : ""
+        );
+
+        return (
+          <div>
+            <div>
+              {filtered.map(product => (
+                <div key={product.id}>
+                  <Link to={`/over5/${product.id}`}>{product.name}</Link>
+                  <br />
+                  <div>{product.suggestedPrice.toFixed(2)}</div>
+                  <br />
+                  <div id="underline"></div>
+                </div>
+              ))}
+            </div>
+            <Route path="/over5/:id" render={({match})=> <CompanyOver5 processed={processed} match={match} /> } />
+          </div>
+        );
+      };
+
+      class CompanyOver5 extends Component {
+        constructor() {
+          super();
+          this.state = {
+            product: {}
+          };
+        }
+        async componentDidMount() {
+          const id = this.props.match.params.id;
+          this.setState({product: this.props.processed.find( product => product.id === id)})
+          console.log(this.props)
+
+        }
+        componentDidUpdate(prevProps){
+          const id = this.props.match.params.id;
+          if(id !== prevProps.match.params.id){
+            this.setState({product: this.props.processed.find( product => product.id === id)})
+
+          }
+        }
+        render() {
+          const { product } = this.state;
+          return (
+            <div>
+              {
+                product.offerings.map( company => <div key={company.id} className='indent'>
+                Offered at ${company.offering.price.toFixed(2)}
+                <br />
+                <div>by {company.name}</div>
+                <br />
+                <div id='underline'></div></div>)
+              }
+            </div>
+          );
+        }
+      }
+
+      class App extends Component {
+        constructor() {
+          super();
+          this.state = {
+            products: [],
+            companies: [],
+            offerings: []
+          };
+        }
+        async componentDidMount() {
+          const responses = await Promise.all([
+            fetch("https://acme-users-api-rev.herokuapp.com/api/products"),
+            fetch("https://acme-users-api-rev.herokuapp.com/api/companies"),
+            fetch("https://acme-users-api-rev.herokuapp.com/api/offerings")
+          ]);
+          const [products, companies, offerings] = await Promise.all(
+            responses.map(response => response.json())
+          );
+          this.setState({ products, companies, offerings });
+        }
+
+        render() {
+          const { products, companies, offerings } = this.state;
+          return (
+            <HashRouter>
+              <Route
+                render={props => (
+                  <Nav
+                    path={props.location.pathname}
+                    products={products}
+                    companies={companies}
+                    offerings={offerings}
+                  />
+                )}
+              />
+
+              <Switch>
+                <Route
+                  path="/under5"
+                  render={(props) => (
+                    <Under5
+                      {...props}
+                      products={products}
+                      companies={companies}
+                      offerings={offerings}
+                    />
+                  )}
+                />
+
+                <Route
+                  path="/over5"
+                  render={(props) => (
+                    <Over5
+                      {...props}
+                      products={products}
+                      companies={companies}
+                      offerings={offerings}
+                    />
+                  )}
+                />
+              </Switch>
+            </HashRouter>
+          );
+        }
+      }
+
+      render(<App />, root);
+    </script>
+  </body>
+</html>
